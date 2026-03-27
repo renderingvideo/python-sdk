@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=61.0,<75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "renderingvideo"
+version = "1.0.1"
+description = "Official Python SDK for the RenderingVideo API - Create and render videos programmatically"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "RenderingVideo", email = "support@renderingvideo.com"}
+]
+keywords = ["video", "rendering", "api", "sdk", "renderingvideo"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "twine>=4.0.0",
+    "build>=0.10.0",
+]
+
+[project.urls]
+Documentation = "https://renderingvideo.com"
+Homepage = "https://renderingvideo.com"
+Source = "https://github.com/renderingvideo/python-sdk"
+Tracker = "https://github.com/renderingvideo/python-sdk/issues"
+
+[tool.setuptools]
+packages = ["renderingvideo"]
+
+[tool.setuptools.package-data]
+renderingvideo = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=renderingvideo --cov-report=term-missing"

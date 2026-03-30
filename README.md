@@ -143,7 +143,7 @@ Preview links are temporary (7 days), don't consume credits, and don't produce d
 
 ```python
 # Create a preview link
-preview = client.preview.create(config={...})
+preview = client.preview.create({...})
 print(f"Preview URL: {preview.preview_url}")
 print(f"Expires in: {preview.expires_in}")
 

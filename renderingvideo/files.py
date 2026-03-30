@@ -4,6 +4,7 @@ File upload and management API client
 
 import json
 import os
+from os import PathLike
 from typing import Optional, Dict, Any, List, Union, BinaryIO
 from .types import FileList, UploadResult, DeleteResult, Asset, RenderingVideoError
 
@@ -43,13 +44,20 @@ class FilesClient:
 
         body_parts = []
 
-        for field_name, file_path, filename in files:
+        for field_name, file_input, filename in files:
             # Determine MIME type
             ext = os.path.splitext(filename)[1].lower().lstrip(".")
             mime_type = self._get_mime_type(ext)
 
-            with open(file_path, "rb") as f:
-                file_content = f.read()
+            if isinstance(file_input, (str, PathLike)):
+                with open(file_input, "rb") as f:
+                    file_content = f.read()
+            else:
+                if hasattr(file_input, "seek"):
+                    file_input.seek(0)
+                file_content = file_input.read()
+                if isinstance(file_content, str):
+                    file_content = file_content.encode("utf-8")
 
             body_parts.append(f"--{boundary}".encode())
             body_parts.append(
@@ -176,8 +184,8 @@ class FilesClient:
 
     def upload(
         self,
-        file: Optional[Union[str, BinaryIO]] = None,
-        files: Optional[List[Union[str, BinaryIO]]] = None,
+        file: Optional[Union[str, PathLike[str], BinaryIO]] = None,
+        files: Optional[List[Union[str, PathLike[str], BinaryIO]]] = None,
         file_paths: Optional[List[str]] = None,
     ) -> UploadResult:
         """
@@ -202,24 +210,24 @@ class FilesClient:
 
         # Handle single file
         if file:
-            if isinstance(file, str):
-                filename = os.path.basename(file)
+            if isinstance(file, (str, PathLike)):
+                filename = os.path.basename(os.fspath(file))
                 upload_files.append(("file", file, filename))
             else:
                 # File-like object
-                filename = getattr(file, "name", "file")
+                filename = os.path.basename(getattr(file, "name", "file"))
                 upload_files.append(("file", file, filename))
 
         # Handle multiple files
         file_list = files or file_paths
         if file_list:
             for i, f in enumerate(file_list):
-                if isinstance(f, str):
-                    filename = os.path.basename(f)
+                if isinstance(f, (str, PathLike)):
+                    filename = os.path.basename(os.fspath(f))
                     upload_files.append(("files", f, filename))
                 else:
                     # File-like object
-                    filename = getattr(f, "name", f"file_{i}")
+                    filename = os.path.basename(getattr(f, "name", f"file_{i}"))
                     upload_files.append(("files", f, filename))
 
         if not upload_files:
@@ -262,11 +270,19 @@ class FilesClient:
         Returns:
             Asset: File details
         """
-        # API doesn't have a single file endpoint, so we search
-        files = self.list(limit=100)
-        for asset in files.files:
-            if asset.id == file_id:
-                return asset
+        # API doesn't have a single file endpoint, so we search paginated results.
+        page = 1
+        while True:
+            files = self.list(page=page, limit=100)
+            for asset in files.files:
+                if asset.id == file_id:
+                    return asset
+
+            if (files.page * files.limit) >= files.total:
+                break
+
+            page += 1
+
         from .types import NotFoundError
         raise NotFoundError(f"File not found: {file_id}", "NOT_FOUND")
 

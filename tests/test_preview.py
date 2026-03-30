@@ -29,6 +29,10 @@ class TestPreviewClient:
     @patch('renderingvideo.preview.PreviewClient._request')
     def test_create_preview(self, mock_request, client):
         """Test creating a preview"""
+        config = {
+            "meta": {"version": "2.0.0"},
+            "tracks": []
+        }
         mock_request.return_value = {
             "success": True,
             "tempId": "temp_abc123",
@@ -38,16 +42,12 @@ class TestPreviewClient:
             "note": "Preview links are temporary"
         }
 
-        preview = client.create(
-            config={
-                "meta": {"version": "2.0.0"},
-                "tracks": []
-            }
-        )
+        preview = client.create(config)
 
         assert isinstance(preview, Preview)
         assert preview.temp_id == "temp_abc123"
         assert preview.expires_in == "7d"
+        mock_request.assert_called_once_with("POST", "/api/v1/preview", data=config)
 
     @patch('renderingvideo.preview.PreviewClient._request')
     def test_get_preview(self, mock_request, client):

@@ -95,6 +95,7 @@ class PreviewClient:
         - Do NOT consume credits
         - Do NOT produce a downloadable video file
         - Use for testing and previewing configurations
+        - Sends the full video schema directly as the request body
 
         Args:
             config: Video configuration following JSON Schema
@@ -104,14 +105,14 @@ class PreviewClient:
 
         Example:
             preview = client.preview.create(
-                config={
+                {
                     "meta": {"version": "2.0.0", "width": 1920, "height": 1080},
                     "tracks": [{"clips": [{"type": "text", "text": "Hello", "start": 0, "duration": 5}]}]
                 }
             )
             print(f"Preview URL: {preview.preview_url}")
         """
-        result = self._request("POST", "/api/v1/preview", data={"config": config})
+        result = self._request("POST", "/api/v1/preview", data=config)
         return Preview.from_dict(result)
 
     def get(self, temp_id: str) -> Preview:

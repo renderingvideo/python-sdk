@@ -11,14 +11,12 @@ from datetime import datetime
 class VideoConfig:
     """Video configuration schema"""
     meta: Dict[str, Any] = field(default_factory=lambda: {"version": "2.0.0"})
-    video: Dict[str, Any] = field(default_factory=dict)
     tracks: List[Dict[str, Any]] = field(default_factory=list)
     assets: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         result = {
             "meta": self.meta,
-            "video": self.video,
             "tracks": self.tracks,
         }
         if self.assets:

@@ -2,8 +2,10 @@
 Tests for FilesClient
 """
 
+import json
+from io import BytesIO
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from renderingvideo.files import FilesClient
 from renderingvideo.types import FileList, UploadResult, DeleteResult
 
@@ -87,8 +89,54 @@ class TestFilesClient:
         assert isinstance(result, DeleteResult)
         assert result.deleted is True
 
+    @patch('renderingvideo.files.FilesClient.list')
+    def test_get_file_searches_across_pages(self, mock_list, client):
+        """Test get searches through paginated file results"""
+        mock_list.side_effect = [
+            FileList(files=[], page=1, limit=100, total=101),
+            FileList(
+                files=[
+                    type("AssetStub", (), {"id": "asset_101"})()
+                ],
+                page=2,
+                limit=100,
+                total=101
+            ),
+        ]
+
+        asset = client.get("asset_101")
+
+        assert asset.id == "asset_101"
+        assert mock_list.call_count == 2
+
     def test_upload_no_files_raises_error(self, client):
         """Test upload without files raises error"""
         with pytest.raises(ValueError) as exc_info:
             client.upload()
         assert "No files provided" in str(exc_info.value)
+
+    @patch('urllib.request.urlopen')
+    def test_upload_accepts_file_like_objects(self, mock_urlopen, client):
+        """Test upload supports file-like objects"""
+        class MockResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                return False
+
+            def read(self):
+                return json.dumps({
+                    "success": True,
+                    "count": 1,
+                    "message": "Uploaded",
+                    "assets": []
+                }).encode("utf-8")
+
+        mock_urlopen.return_value = MockResponse()
+
+        file_obj = BytesIO(b"image-bytes")
+        result = client.upload(file=file_obj)
+
+        assert isinstance(result, UploadResult)
+        assert result.count == 1

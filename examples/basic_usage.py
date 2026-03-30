@@ -94,7 +94,7 @@ upload_result = client.files.upload(files=[
 
 # Create a temporary preview (valid for 7 days)
 preview = client.preview.create(
-    config={
+    {
         "meta": {"version": "2.0.0", "width": 1920, "height": 1080},
         "tracks": [
             {

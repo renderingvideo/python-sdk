@@ -15,7 +15,7 @@ Usage:
     upload = client.files.upload(file="/path/to/image.png")
 
     # Preview operations
-    preview = client.preview.create(config={...})
+    preview = client.preview.create({...})
 
     # Credits
     credits = client.get_credits()
@@ -45,7 +45,7 @@ from .types import (
     RemoteError,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.0.0.2"
 __all__ = [
     # Main client
     "Client",

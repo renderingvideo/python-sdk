@@ -29,7 +29,6 @@ class TestVideoConfig:
         """Test default video configuration"""
         config = VideoConfig()
         assert config.meta["version"] == "2.0.0"
-        assert config.video == {}
         assert config.tracks == []
         assert config.assets is None
 
@@ -37,13 +36,12 @@ class TestVideoConfig:
         """Test config serialization"""
         config = VideoConfig(
             meta={"version": "2.0.0", "width": 1920},
-            video={"duration": 10},
             tracks=[{"clips": []}]
         )
         result = config.to_dict()
         assert "meta" in result
-        assert "video" in result
         assert "tracks" in result
+        assert "video" not in result
         assert "assets" not in result
 
     def test_to_dict_with_assets(self):

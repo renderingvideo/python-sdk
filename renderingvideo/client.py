@@ -29,7 +29,7 @@ class Client:
         upload = client.files.upload(file="/path/to/image.png")
 
         # Create preview
-        preview = client.preview.create(config={...})
+        preview = client.preview.create({...})
     """
 
     def __init__(

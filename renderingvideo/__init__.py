@@ -21,6 +21,7 @@ Usage:
     credits = client.get_credits()
 """
 
+from .agent import AgentAuth, AgentClient
 from .client import Client
 from .video import VideoClient
 from .files import FilesClient
@@ -45,10 +46,12 @@ from .types import (
     RemoteError,
 )
 
-__version__ = "1.0.0.2"
+__version__ = "1.1.0"
 __all__ = [
     # Main client
     "Client",
+    "AgentAuth",
+    "AgentClient",
     # Sub-clients
     "VideoClient",
     "FilesClient",

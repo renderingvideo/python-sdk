@@ -47,6 +47,11 @@ class Task:
     metadata: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
     already_rendered: Optional[bool] = None
+    title: Optional[str] = None
+    category: Optional[str] = None
+    temp_id: Optional[str] = None
+    converted: Optional[bool] = None
+    convert_message: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Task":
@@ -71,6 +76,11 @@ class Task:
             metadata=data.get("metadata"),
             message=data.get("message"),
             already_rendered=data.get("alreadyRendered"),
+            title=data.get("title"),
+            category=data.get("category"),
+            temp_id=data.get("tempId"),
+            converted=data.get("converted"),
+            convert_message=data.get("convertMessage"),
         )
 
     @staticmethod
@@ -190,17 +200,19 @@ class Preview:
     temp_id: str
     preview_url: str
     viewer_url: Optional[str] = None
-    expires_in: str = "7d"
+    expires_in: Optional[str] = None
     config: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
+    player_url: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preview":
         return cls(
             temp_id=data.get("tempId", ""),
-            preview_url=data.get("previewUrl", ""),
+            preview_url=data.get("previewUrl") or data.get("viewerUrl") or data.get("url", ""),
+            player_url=data.get("playerUrl") or data.get("url"),
             viewer_url=data.get("viewerUrl"),
-            expires_in=data.get("expiresIn", "7d"),
+            expires_in=data.get("expiresIn"),
             config=data.get("config"),
             message=data.get("message") or data.get("note"),
         )

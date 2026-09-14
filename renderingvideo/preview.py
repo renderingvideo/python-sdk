@@ -1,3 +1,5 @@
+from urllib.parse import quote
+from ._http import request_json, send
 """
 Preview API client for temporary preview links
 """
@@ -9,9 +11,10 @@ from .types import Preview, Task, DeleteResult, RenderingVideoError
 class PreviewClient:
     """Client for preview-related API operations"""
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 30):
+    def __init__(self, base_url: str, api_key: str, timeout: int = 30, agent_auth=None):
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
+        self._agent_auth = agent_auth
         self._timeout = timeout
 
     def _get_headers(self) -> Dict[str, str]:
@@ -27,61 +30,7 @@ class PreviewClient:
         data: Optional[Dict] = None,
         params: Optional[Dict] = None,
     ) -> Dict[str, Any]:
-        """Make HTTP request"""
-        import json
-        import urllib.request
-        import urllib.parse
-        import urllib.error
-
-        url = f"{self._base_url}{endpoint}"
-
-        if params:
-            url += "?" + urllib.parse.urlencode(params)
-
-        headers = self._get_headers()
-        body = json.dumps(data).encode("utf-8") if data else None
-
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers=headers,
-            method=method,
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8")
-            try:
-                error_data = json.loads(error_body)
-            except json.JSONDecodeError:
-                error_data = {"error": error_body}
-
-            message = error_data.get("error", str(e))
-            code = error_data.get("code", "UNKNOWN_ERROR")
-
-            if e.code == 401:
-                from .types import AuthenticationError
-                raise AuthenticationError(message, code, error_data, e.code)
-            elif e.code == 402:
-                from .types import InsufficientCreditsError
-                raise InsufficientCreditsError(message, code, error_data, e.code)
-            elif e.code == 400:
-                from .types import ValidationError, AlreadyRenderingError
-                if code == "ALREADY_RENDERING":
-                    raise AlreadyRenderingError(message, code, error_data, e.code)
-                raise ValidationError(message, code, error_data, e.code)
-            elif e.code == 404:
-                from .types import NotFoundError
-                raise NotFoundError(message, code, error_data, e.code)
-            elif e.code == 429:
-                from .types import RateLimitError
-                raise RateLimitError(message, code, error_data, e.code)
-            else:
-                raise RenderingVideoError(message, code, error_data, e.code)
-        except urllib.error.URLError as e:
-            raise RenderingVideoError(f"Network error: {e.reason}", "NETWORK_ERROR")
+        return request_json(self._base_url, self._api_key, self._timeout, method, endpoint, data=data, params=params, agent_auth=self._agent_auth)
 
     def create(
         self,
@@ -125,7 +74,7 @@ class PreviewClient:
         Returns:
             Preview: Preview info with config
         """
-        result = self._request("GET", f"/api/v1/preview/{temp_id}")
+        result = self._request("GET", f"/api/v1/preview/{quote(temp_id, safe='')}")
         return Preview.from_dict(result)
 
     def delete(self, temp_id: str) -> DeleteResult:
@@ -138,13 +87,14 @@ class PreviewClient:
         Returns:
             DeleteResult: Delete result
         """
-        result = self._request("DELETE", f"/api/v1/preview/{temp_id}")
+        result = self._request("DELETE", f"/api/v1/preview/{quote(temp_id, safe='')}")
         return DeleteResult.from_dict(result, "tempId")
 
     def convert(
         self,
         temp_id: str,
         category: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Task:
         """
         Clone a temporary preview into a permanent video task
@@ -165,8 +115,10 @@ class PreviewClient:
         data: Dict[str, Any] = {}
         if category:
             data["category"] = category
+        if metadata is not None:
+            data["metadata"] = metadata
 
-        result = self._request("POST", f"/api/v1/preview/{temp_id}/convert", data=data)
+        result = self._request("POST", f"/api/v1/preview/{quote(temp_id, safe='')}/convert", data=data)
         return Task.from_dict(result)
 
     def render(
@@ -175,6 +127,7 @@ class PreviewClient:
         category: Optional[str] = None,
         webhook_url: Optional[str] = None,
         num_workers: int = 5,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Task:
         """
         Clone a temporary preview into a permanent task and immediately start rendering
@@ -200,10 +153,12 @@ class PreviewClient:
         data: Dict[str, Any] = {}
         if category:
             data["category"] = category
+        if metadata is not None:
+            data["metadata"] = metadata
         if webhook_url:
             data["webhook_url"] = webhook_url
-        if num_workers:
+        if num_workers is not None:
             data["num_workers"] = num_workers
 
-        result = self._request("POST", f"/api/v1/preview/{temp_id}/render", data=data)
+        result = self._request("POST", f"/api/v1/preview/{quote(temp_id, safe='')}/render", data=data)
         return Task.from_dict(result)

@@ -1,3 +1,5 @@
+from urllib.parse import quote
+from ._http import request_json, send
 """
 Video API client
 """
@@ -9,9 +11,10 @@ from .types import Task, TaskList, DeleteResult, RenderingVideoError
 class VideoClient:
     """Client for video-related API operations"""
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 30):
+    def __init__(self, base_url: str, api_key: str, timeout: int = 30, agent_auth=None):
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
+        self._agent_auth = agent_auth
         self._timeout = timeout
 
     def _get_headers(self, content_type: str = "application/json") -> Dict[str, str]:
@@ -27,66 +30,14 @@ class VideoClient:
         data: Optional[Dict] = None,
         params: Optional[Dict] = None,
     ) -> Dict[str, Any]:
-        """Make HTTP request"""
-        import json
-        import urllib.request
-        import urllib.parse
-        import urllib.error
-
-        url = f"{self._base_url}{endpoint}"
-
-        if params:
-            url += "?" + urllib.parse.urlencode(params)
-
-        headers = self._get_headers()
-        body = json.dumps(data).encode("utf-8") if data else None
-
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers=headers,
-            method=method,
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8")
-            try:
-                error_data = json.loads(error_body)
-            except json.JSONDecodeError:
-                error_data = {"error": error_body}
-
-            message = error_data.get("error", str(e))
-            code = error_data.get("code", "UNKNOWN_ERROR")
-
-            if e.code == 401:
-                from .types import AuthenticationError
-                raise AuthenticationError(message, code, error_data, e.code)
-            elif e.code == 402:
-                from .types import InsufficientCreditsError
-                raise InsufficientCreditsError(message, code, error_data, e.code)
-            elif e.code == 400:
-                from .types import ValidationError, AlreadyRenderingError
-                if code == "ALREADY_RENDERING":
-                    raise AlreadyRenderingError(message, code, error_data, e.code)
-                raise ValidationError(message, code, error_data, e.code)
-            elif e.code == 404:
-                from .types import NotFoundError
-                raise NotFoundError(message, code, error_data, e.code)
-            elif e.code == 429:
-                from .types import RateLimitError
-                raise RateLimitError(message, code, error_data, e.code)
-            else:
-                raise RenderingVideoError(message, code, error_data, e.code)
-        except urllib.error.URLError as e:
-            raise RenderingVideoError(f"Network error: {e.reason}", "NETWORK_ERROR")
+        return request_json(self._base_url, self._api_key, self._timeout, method, endpoint, data=data, params=params, agent_auth=self._agent_auth)
 
     def create(
         self,
         config: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
+        title: Optional[str] = None,
+        category: Optional[str] = None,
     ) -> Task:
         """
         Create a new video task (does not start rendering)
@@ -107,8 +58,12 @@ class VideoClient:
             )
         """
         data = {"config": config}
-        if metadata:
+        if metadata is not None:
             data["metadata"] = metadata
+        if title is not None:
+            data["title"] = title
+        if category is not None:
+            data["category"] = category
 
         result = self._request("POST", "/api/v1/video", data=data)
         return Task.from_dict(result)
@@ -118,6 +73,7 @@ class VideoClient:
         page: int = 1,
         limit: int = 20,
         status: Optional[str] = None,
+        category: Optional[str] = None,
     ) -> TaskList:
         """
         List video tasks
@@ -133,6 +89,8 @@ class VideoClient:
         params = {"page": page, "limit": limit}
         if status:
             params["status"] = status
+        if category is not None:
+            params["category"] = category
 
         result = self._request("GET", "/api/v1/video", params=params)
         return TaskList.from_dict(result)
@@ -147,7 +105,7 @@ class VideoClient:
         Returns:
             Task: Task details
         """
-        result = self._request("GET", f"/api/v1/video/{task_id}")
+        result = self._request("GET", f"/api/v1/video/{quote(task_id, safe='')}")
         return Task.from_dict(result)
 
     def delete(self, task_id: str) -> DeleteResult:
@@ -163,7 +121,7 @@ class VideoClient:
         Returns:
             DeleteResult: Result with deleted and remoteDeleted flags
         """
-        result = self._request("DELETE", f"/api/v1/video/{task_id}")
+        result = self._request("DELETE", f"/api/v1/video/{quote(task_id, safe='')}")
         return DeleteResult.from_dict(result, "taskId")
 
     def render(
@@ -192,8 +150,17 @@ class VideoClient:
         data: Dict[str, Any] = {}
         if webhook_url:
             data["webhook_url"] = webhook_url
-        if num_workers:
+        if num_workers is not None:
             data["num_workers"] = num_workers
 
-        result = self._request("POST", f"/api/v1/video/{task_id}/render", data=data)
+        result = self._request("POST", f"/api/v1/video/{quote(task_id, safe='')}/render", data=data)
         return Task.from_dict(result)
+
+    def create_and_render(self, config, metadata=None, webhook_url=None, num_workers=5, title=None, category=None):
+        """Create then render once. If rendering fails, the created task ID is attached to the error."""
+        task = self.create(config, metadata=metadata, title=title, category=category)
+        try:
+            return self.render(task.task_id, webhook_url=webhook_url, num_workers=num_workers)
+        except RenderingVideoError as error:
+            error.details["taskId"] = task.task_id
+            raise

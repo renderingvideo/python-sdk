@@ -1,3 +1,5 @@
+from urllib.parse import quote
+from ._http import request_json, send
 """
 File upload and management API client
 """
@@ -19,9 +21,10 @@ class FilesClient:
         "audio": ["mpeg", "mp3", "wav", "ogg", "aac", "flac"],
     }
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 300):
+    def __init__(self, base_url: str, api_key: str, timeout: int = 300, agent_auth=None):
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
+        self._agent_auth = agent_auth
         self._timeout = timeout  # Longer timeout for uploads
 
     def _get_headers(self) -> Dict[str, str]:
@@ -39,7 +42,8 @@ class FilesClient:
         import uuid
 
         boundary = f"----WebKitFormBoundary{uuid.uuid4().hex[:16]}"
-        headers = self._get_headers()
+        headers = (self._agent_auth.headers("POST", self._base_url + "/api/v1/upload")
+                   if self._agent_auth else self._get_headers())
         headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
 
         body_parts = []
@@ -78,32 +82,7 @@ class FilesClient:
             method="POST",
         )
 
-        try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8")
-            try:
-                error_data = json.loads(error_body)
-            except json.JSONDecodeError:
-                error_data = {"error": error_body}
-
-            message = error_data.get("error", str(e))
-            code = error_data.get("code", "UNKNOWN_ERROR")
-
-            if e.code == 401:
-                from .types import AuthenticationError
-                raise AuthenticationError(message, code, error_data, e.code)
-            elif e.code == 400:
-                from .types import ValidationError
-                raise ValidationError(message, code, error_data, e.code)
-            elif e.code == 402:
-                from .types import InsufficientCreditsError
-                raise InsufficientCreditsError(message, code, error_data, e.code)
-            else:
-                raise RenderingVideoError(message, code, error_data, e.code)
-        except urllib.error.URLError as e:
-            raise RenderingVideoError(f"Network error: {e.reason}", "NETWORK_ERROR")
+        return send(req, self._timeout, no_redirect=self._agent_auth is not None)
 
     def _get_mime_type(self, ext: str) -> str:
         """Get MIME type from file extension"""
@@ -137,50 +116,7 @@ class FilesClient:
         endpoint: str,
         params: Optional[Dict] = None,
     ) -> Dict[str, Any]:
-        """Make HTTP request"""
-        import urllib.request
-        import urllib.parse
-        import urllib.error
-
-        url = f"{self._base_url}{endpoint}"
-
-        if params:
-            url += "?" + urllib.parse.urlencode(params)
-
-        headers = {"Authorization": f"Bearer {self._api_key}"}
-
-        req = urllib.request.Request(
-            url,
-            headers=headers,
-            method=method,
-        )
-
-        try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8")
-            try:
-                error_data = json.loads(error_body)
-            except json.JSONDecodeError:
-                error_data = {"error": error_body}
-
-            message = error_data.get("error", str(e))
-            code = error_data.get("code", "UNKNOWN_ERROR")
-
-            if e.code == 401:
-                from .types import AuthenticationError
-                raise AuthenticationError(message, code, error_data, e.code)
-            elif e.code == 404:
-                from .types import NotFoundError
-                raise NotFoundError(message, code, error_data, e.code)
-            elif e.code == 400:
-                from .types import ValidationError
-                raise ValidationError(message, code, error_data, e.code)
-            else:
-                raise RenderingVideoError(message, code, error_data, e.code)
-        except urllib.error.URLError as e:
-            raise RenderingVideoError(f"Network error: {e.reason}", "NETWORK_ERROR")
+        return request_json(self._base_url, self._api_key, self._timeout, method, endpoint, params=params, agent_auth=self._agent_auth)
 
     def upload(
         self,
@@ -284,7 +220,7 @@ class FilesClient:
             page += 1
 
         from .types import NotFoundError
-        raise NotFoundError(f"File not found: {file_id}", "NOT_FOUND")
+        raise NotFoundError(f"File not found: {quote(file_id, safe='')}", "NOT_FOUND")
 
     def delete(self, file_id: str) -> DeleteResult:
         """
@@ -296,5 +232,5 @@ class FilesClient:
         Returns:
             DeleteResult: Delete result
         """
-        result = self._request("DELETE", f"/api/v1/files/{file_id}")
+        result = self._request("DELETE", f"/api/v1/files/{quote(file_id, safe='')}")
         return DeleteResult.from_dict(result, "fileId")

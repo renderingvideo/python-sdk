@@ -2,6 +2,46 @@
 
 Official Python SDK for the RenderingVideo API. Create and render videos programmatically with ease.
 
+
+## API and Agent Access in 1.1
+
+Agent mode uses the optional cryptography extra: `pip install "renderingvideo[agent]"`. Ordinary API-key clients retain the standard-library-only runtime.
+
+```python
+import json
+import os
+from renderingvideo import AgentAuth, Client
+
+# Generate once with AgentAuth.generate_device(), persist securely, then reuse it.
+with open(os.environ["RENDERINGVIDEO_DEVICE_FILE"]) as file:
+    device = json.load(file)
+auth = AgentAuth(os.environ["RENDERINGVIDEO_AGENT_KEY"], device)
+client = Client(agent_auth=auth)
+print(client.agent.context())
+print(client.agent.audit(page_size=20))
+print(client.get_capabilities())
+```
+
+`Client(api_key="sk-...")` remains supported. AgentAuth exchanges/refreshes short-lived tokens and signs every request with the persistent device's Ed25519 key. Keep the private key private. Set `base_url` on AgentAuth for an HTTPS origin or localhost.
+
+```python
+task = client.video.create(config, title="Launch", category="marketing", metadata={"campaign": "launch"})
+tasks = client.video.list(category="all")
+client.preview.convert(temp_id, metadata={"campaign": "launch"})
+client.preview.render(temp_id, metadata={"campaign": "launch"}, num_workers=2)
+```
+
+`client.video.create_and_render(...)` is available as a convenience; on a render error, `error.details["taskId"]` identifies the already-created task. Schema dictionaries preserve grouped assets, gradients, nested layouts and advanced clips. See [enhanced-schema.json](examples/enhanced-schema.json).
+
+Context and capability discovery require `system:read`. Audit reads this key's events with `audit:read`; `allKeys=true` needs `audit:read:all`. Device proofs cover the credential hash, method, exact path/query, timestamp and nonce; HTTPS protects the body. Blocked devices and revoked credentials are rejected. SDKs do not automatically replay mutating requests after ambiguous failures; `invalidate()` explicitly discards a cached token.
+
+Task listing still defaults to category `api`; `category=all` includes tasks created through the website. Render quality is derived from schema dimensions, not a `quality` request option. Capability/category additions require the matching website API deployment. API keys and existing endpoints continue working on older deployments; capability discovery may return 404 there.
+
+[API reference](https://renderingvideo.com/docs/api-reference.md) · [Agent Access protocol](https://renderingvideo.com/docs/agent-access.md)
+
+Cross-language integration: in the website checkout, run `RENDERINGVIDEO_SDK_ROOT=/absolute/path/to/renderingvideo-clients pnpm exec tsx --test scripts/sdk-contract.test.ts` after building Node and installing the Python/PHP test dependencies. It runs local HTTP fixtures and validates SDK signatures with the application's verifier, without contacting production.
+
+
 ## Installation
 
 ```bash

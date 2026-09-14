@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "renderingvideo"
-version = "1.1.0"
+version = "1.1.1"
 description = "Official Python SDK for the RenderingVideo API - Create and render videos programmatically"
 readme = "README.md"
 license = {text = "MIT"}
@@ -31,7 +31,6 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-agent = ["cryptography>=41.0.0"]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",

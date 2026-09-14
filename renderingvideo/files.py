@@ -21,10 +21,9 @@ class FilesClient:
         "audio": ["mpeg", "mp3", "wav", "ogg", "aac", "flac"],
     }
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 300, agent_auth=None):
+    def __init__(self, base_url: str, api_key: str, timeout: int = 300):
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
-        self._agent_auth = agent_auth
         self._timeout = timeout  # Longer timeout for uploads
 
     def _get_headers(self) -> Dict[str, str]:
@@ -42,8 +41,7 @@ class FilesClient:
         import uuid
 
         boundary = f"----WebKitFormBoundary{uuid.uuid4().hex[:16]}"
-        headers = (self._agent_auth.headers("POST", self._base_url + "/api/v1/upload")
-                   if self._agent_auth else self._get_headers())
+        headers = self._get_headers()
         headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
 
         body_parts = []
@@ -82,7 +80,7 @@ class FilesClient:
             method="POST",
         )
 
-        return send(req, self._timeout, no_redirect=self._agent_auth is not None)
+        return send(req, self._timeout)
 
     def _get_mime_type(self, ext: str) -> str:
         """Get MIME type from file extension"""
@@ -116,7 +114,7 @@ class FilesClient:
         endpoint: str,
         params: Optional[Dict] = None,
     ) -> Dict[str, Any]:
-        return request_json(self._base_url, self._api_key, self._timeout, method, endpoint, params=params, agent_auth=self._agent_auth)
+        return request_json(self._base_url, self._api_key, self._timeout, method, endpoint, params=params)
 
     def upload(
         self,

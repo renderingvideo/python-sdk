@@ -1,4 +1,4 @@
-"""Shared response and device-auth handling for JSON and multipart requests."""
+"""Shared response and API-key handling for JSON and multipart requests."""
 import json
 import urllib.error
 import urllib.parse
@@ -44,13 +44,13 @@ def send(req, timeout, no_redirect=False):
         raise RenderingVideoError("Invalid JSON response", "INVALID_RESPONSE") from error
 
 
-def request_json(base_url, api_key, timeout, method, endpoint, data=None, params=None, agent_auth=None):
+def request_json(base_url, api_key, timeout, method, endpoint, data=None, params=None):
     url = base_url.rstrip("/") + endpoint
     if params:
         url += "?" + urllib.parse.urlencode({k: str(v).lower() if isinstance(v, bool) else v
                                            for k, v in params.items() if v is not None})
-    headers = agent_auth.headers(method, url) if agent_auth else {"Authorization": "Bearer " + api_key}
+    headers = {"Authorization": "Bearer " + api_key}
     headers["Content-Type"] = "application/json"
     body = json.dumps(data).encode("utf-8") if data is not None else None
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
-    return send(req, timeout, no_redirect=agent_auth is not None)
+    return send(req, timeout)

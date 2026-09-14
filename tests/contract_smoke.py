@@ -1,7 +1,7 @@
 """Run against the application repository's local SDK contract fixture."""
 import io
 import os
-from renderingvideo import AgentAuth, Client, RenderingVideoError
+from renderingvideo import Client
 origin = os.environ['RV_TEST_ORIGIN']
 assert origin.startswith('http://127.0.0.1:')
 api = Client('sk-contract', base_url=origin)
@@ -18,22 +18,4 @@ api.video.render(task.task_id, num_workers=2)
 file = io.BytesIO(b'test')
 file.name = 'test.png'
 assert api.files.upload(file=file).count == 1
-auth = AgentAuth('ak_contract', AgentAuth.generate_device(), base_url=origin)
-client = Client(agent_auth=auth)
-client.agent.context()
-client.get_credits()
-assert client.agent.audit(all_keys=True, risk_level='high risk')['total'] == 0
-try:
-    client.agent.audit(risk_level='denied')
-    raise AssertionError('Expected a scope error')
-except RenderingVideoError as error:
-    assert error.code == 'INSUFFICIENT_SCOPE'
-auth.invalidate()
-client.agent.context()
-client.files.upload(file=file)
-try:
-    auth.headers('GET', 'https://different.example/api/v1/credits')
-    raise AssertionError('Expected an origin error')
-except ValueError:
-    pass
-print('Python SDK contracts and device proof passed')
+print('Python SDK user API contracts passed')

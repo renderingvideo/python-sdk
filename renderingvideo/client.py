@@ -1,5 +1,4 @@
 from ._http import request_json
-from .agent import AgentClient
 """
 Main client for the RenderingVideo SDK
 """
@@ -39,7 +38,6 @@ class Client:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: int = 30,
-        agent_auth=None,
     ):
         """
         Initialize the client
@@ -49,16 +47,11 @@ class Client:
             base_url: API base URL (default: https://renderingvideo.com)
             timeout: Request timeout in seconds (default: 30)
         """
-        if agent_auth and api_key:
-            raise ValueError("Provide api_key or agent_auth, not both")
-        if not agent_auth and (not api_key or not api_key.startswith("sk-")):
+        if not api_key or not api_key.startswith("sk-"):
             raise ValueError("Invalid API key. API key should start with 'sk-'")
 
-        self._api_key = api_key or ""
-        self._agent_auth = agent_auth
-        self._base_url = (base_url or (agent_auth.base_url if agent_auth else "https://renderingvideo.com")).rstrip("/")
-        if agent_auth and self._base_url != agent_auth.base_url:
-            raise ValueError("Agent auth and client base_url must match")
+        self._api_key = api_key
+        self._base_url = (base_url or "https://renderingvideo.com").rstrip("/")
         self._timeout = timeout
 
         # Lazy-loaded sub-clients
@@ -70,7 +63,7 @@ class Client:
     def video(self) -> VideoClient:
         """Access video-related operations"""
         if self._video is None:
-            self._video = VideoClient(self._base_url, self._api_key, self._timeout, self._agent_auth)
+            self._video = VideoClient(self._base_url, self._api_key, self._timeout)
         return self._video
 
     @property
@@ -78,14 +71,14 @@ class Client:
         """Access file upload and management operations"""
         if self._files is None:
             # Use longer timeout for file uploads
-            self._files = FilesClient(self._base_url, self._api_key, max(300, self._timeout), self._agent_auth)
+            self._files = FilesClient(self._base_url, self._api_key, max(300, self._timeout))
         return self._files
 
     @property
     def preview(self) -> PreviewClient:
         """Access preview-related operations"""
         if self._preview is None:
-            self._preview = PreviewClient(self._base_url, self._api_key, self._timeout, self._agent_auth)
+            self._preview = PreviewClient(self._base_url, self._api_key, self._timeout)
         return self._preview
 
     def get_credits(self) -> Credits:
@@ -100,16 +93,10 @@ class Client:
             print(f"Available credits: {credits.credits}")
         """
         return Credits.from_dict(request_json(self._base_url, self._api_key, self._timeout,
-                                              "GET", "/api/v1/credits", agent_auth=self._agent_auth))
+                                              "GET", "/api/v1/credits"))
 
     def get_capabilities(self):
-        return request_json(self._base_url, self._api_key, self._timeout, "GET", "/api/v1/capabilities", agent_auth=self._agent_auth)
-
-    @property
-    def agent(self):
-        if not self._agent_auth:
-            raise ValueError("Agent operations require AgentAuth")
-        return AgentClient(self._agent_auth, self._timeout)
+        return request_json(self._base_url, self._api_key, self._timeout, "GET", "/api/v1/capabilities")
 
     @property
     def api_key(self) -> str:

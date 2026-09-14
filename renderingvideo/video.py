@@ -11,10 +11,9 @@ from .types import Task, TaskList, DeleteResult, RenderingVideoError
 class VideoClient:
     """Client for video-related API operations"""
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 30, agent_auth=None):
+    def __init__(self, base_url: str, api_key: str, timeout: int = 30):
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
-        self._agent_auth = agent_auth
         self._timeout = timeout
 
     def _get_headers(self, content_type: str = "application/json") -> Dict[str, str]:
@@ -30,7 +29,7 @@ class VideoClient:
         data: Optional[Dict] = None,
         params: Optional[Dict] = None,
     ) -> Dict[str, Any]:
-        return request_json(self._base_url, self._api_key, self._timeout, method, endpoint, data=data, params=params, agent_auth=self._agent_auth)
+        return request_json(self._base_url, self._api_key, self._timeout, method, endpoint, data=data, params=params)
 
     def create(
         self,
